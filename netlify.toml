@@ -1,16 +1,11 @@
 # This is the final, production-ready configuration for Netlify.
 
 [build]
-  # The command Netlify runs to build your frontend.
   command = "npm run build"
-  # The folder where your serverless functions are.
   functions = "netlify/functions/"
-  # The folder that Netlify deploys.
   publish = "dist"
 
-# THIS IS THE FIX:
-# This rule tells Netlify to send all unknown paths to your index.html
-# file, which allows React Router to handle the routing.
+# This rule allows React Router to work correctly.
 [[redirects]]
   from = "/*"
   to = "/index.html"

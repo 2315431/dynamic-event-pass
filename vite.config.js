@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  // THIS IS THE FIX:
-  // This one line tells Vite to use relative paths for all assets.
-  // This solves the "MIME type" error on Netlify.
+  // THIS IS THE FINAL FIX:
+  // This one line tells Vite to use a relative path ('./') instead of an
+  // absolute path ('/'). This is the key to solving the MIME type error on Netlify.
   base: './', 
   
   plugins: [react()],
