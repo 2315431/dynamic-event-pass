@@ -1,0 +1,16 @@
+# This is the final and most explicit configuration possible.
+
+[dev]
+  # This tells the Netlify server to use its Vite integration.
+  framework = "vite"
+  port = 8888
+  targetPort = 5173
+
+# This tells the server EXACTLY where your functions are.
+[functions]
+  directory = "netlify/functions"
+
+# This explicitly declares the 'hello' function.
+# This bypasses the broken automatic detection.
+[functions.hello]
+  # The name here ('hello') must match the file name ('hello.js').
