@@ -23,7 +23,7 @@ exports.handler = async (event, context) => {
     let ticketData;
     try {
       ticketData = jwt.verify(ticketJWT, process.env.PUBLIC_KEY, {
-        algorithms: ['RS256'],
+        algorithms: ['ES256'],
         issuer: process.env.JWT_ISSUER,
         audience: process.env.JWT_AUDIENCE
       });
