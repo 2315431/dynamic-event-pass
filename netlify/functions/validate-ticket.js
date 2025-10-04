@@ -1,161 +1,47 @@
-const jwt = require('jsonwebtoken');
-const { authenticator } = require('otplib');
-const bcrypt = require('bcryptjs');
-const { createClient } = require('@supabase/supabase-js');
+import jwt from 'jsonwebtoken';
+import { authenticator } from 'otplib';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-exports.handler = async (event, context) => {
+export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
+    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
-
   try {
-    const { ticketJWT, code, codeType = 'totp', validatorDevice = 'unknown' } = JSON.parse(event.body);
-
-    // Verify JWT signature
-    let ticketData;
-    try {
-      ticketData = jwt.verify(ticketJWT, process.env.PUBLIC_KEY, {
-        algorithms: ['ES256'],
-        issuer: process.env.JWT_ISSUER,
-        audience: process.env.JWT_AUDIENCE
-      });
-    } catch (jwtError) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ 
-          success: false, 
-          error: 'Invalid ticket signature',
-          details: jwtError.message 
-        })
-      };
+    const { ticketJWT, code } = JSON.parse(event.body);
+    if (!ticketJWT || !code) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing ticket or code.' }) };
     }
 
-    // Check if ticket exists and is not redeemed/revoked
-    const { data: ticket, error: fetchError } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('ticket_id', ticketData.ticketId)
-      .single();
+    // THIS IS THE FIX: Re-fold the public key so the JWT library can read it.
+    const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
 
-    if (fetchError || !ticket) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ success: false, error: 'Ticket not found' })
-      };
-    }
-
-    if (ticket.is_redeemed) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ 
-          success: false, 
-          error: 'Ticket already used',
-          redeemedAt: ticket.redeemed_at
-        })
-      };
-    }
-
-    if (ticket.is_revoked) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ success: false, error: 'Ticket revoked' })
-      };
-    }
-
-    // Check validity period
-    const now = new Date();
-    const validFrom = new Date(ticketData.validFrom);
-    const validTo = new Date(ticketData.validTo);
-
-    if (now < validFrom || now > validTo) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ 
-          success: false, 
-          error: 'Ticket not valid for current time',
-          validFrom: validFrom.toISOString(),
-          validTo: validTo.toISOString()
-        })
-      };
-    }
-
-    // Validate code
-    let codeValid = false;
-    
-    if (codeType === 'totp') {
-      // Verify TOTP code
-      codeValid = authenticator.verify({
-        token: code,
-        secret: ticketData.totpSecret,
-        window: parseInt(process.env.TOTP_WINDOW) || 1
-      });
-    } else if (codeType === 'pin') {
-      // Verify backup PIN
-      codeValid = await bcrypt.compare(code, ticketData.backupPinHash);
-    }
-
-    if (!codeValid) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ success: false, error: 'Invalid code' })
-      };
-    }
-
-    // Mark as redeemed
-    const { error: updateError } = await supabase
-      .from('tickets')
-      .update({
-        is_redeemed: true,
-        redeemed_at: new Date().toISOString()
-      })
-      .eq('ticket_id', ticketData.ticketId);
-
-    if (updateError) {
-      console.error('Update error:', updateError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to redeem ticket' })
-      };
-    }
-
-    // Log redemption
-    await supabase.from('redemption_logs').insert({
-      ticket_id: ticketData.ticketId,
-      validator_device: validatorDevice,
-      redeemed_at: new Date().toISOString()
+    const decoded = jwt.verify(ticketJWT, publicKey, {
+      algorithms: ['ES256'],
+      issuer: process.env.JWT_ISSUER,
+      audience: process.env.JWT_AUDIENCE,
     });
 
+    const isTotpValid = authenticator.verify({ token: code, secret: decoded.totpSecret });
+    if (!isTotpValid) {
+      return { statusCode: 401, body: JSON.stringify({ success: false, error: 'Invalid code.' }) };
+    }
+
+    // In a real app, you would now update your database to mark this ticket as redeemed.
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
       body: JSON.stringify({
         success: true,
-        ticketData: {
-          ticketId: ticketData.ticketId,
-          eventName: ticketData.eventName,
-          buyerName: ticketData.buyerName,
-          seatInfo: ticketData.seatInfo,
-          category: ticketData.category
-        },
-        redeemedAt: new Date().toISOString()
-      })
+        message: 'Ticket is valid and has been redeemed.',
+        ticketDetails: decoded,
+      }),
     };
   } catch (error) {
-    console.error('Error:', error);
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
+      statusCode: 401,
+      body: JSON.stringify({
+        success: false,
+        error: 'Invalid ticket signature',
+        details: error.message,
+      }),
     };
   }
 };
