@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { authenticator } from 'otplib';
+import { jwtDecode } from 'jwt-decode'; // <-- THE FIRST FIX: Import the correct tool.
 
 // These styles do NOT depend on ticket data, so they can live outside the component.
-// This prevents the production build error.
 const staticStyles = {
   container: {
     maxWidth: '400px',
@@ -82,11 +82,9 @@ function Ticket() {
     }
 
     try {
-      // Decode the payload from the JWT
-      const payload = JSON.parse(atob(ticketJWT.split('.')[1]));
+      const payload = jwtDecode(ticketJWT); // <-- THE SECOND FIX: Use the correct tool to decode.
       setTicketData(payload);
       
-      // Function to generate the TOTP code
       const generateCode = (secret) => {
         const code = authenticator.generate(secret);
         const remaining = authenticator.timeRemaining();
@@ -94,18 +92,15 @@ function Ticket() {
         setTimeRemaining(remaining);
       };
       
-      // Generate the first code immediately, then set an interval to update it.
       generateCode(payload.totpSecret);
       const interval = setInterval(() => generateCode(payload.totpSecret), 1000);
       
-      // Clean up the interval when the component unmounts
       return () => clearInterval(interval);
     } catch (err) {
       setError('Invalid ticket format.');
     }
   }, []);
 
-  // Show an error message if something went wrong
   if (error) {
     return (
       <div style={staticStyles.container}>
@@ -114,7 +109,6 @@ function Ticket() {
     );
   }
 
-  // Show a loading message until the ticket data is ready
   if (!ticketData) {
     return (
        <div style={staticStyles.container}>
@@ -123,8 +117,6 @@ function Ticket() {
     );
   }
 
-  // These styles DEPEND on ticketData, so they are created here, only AFTER we know data exists.
-  // This is the fix for the bug.
   const dynamicTicketStyle = {
     background: `linear-gradient(135deg, ${ticketData.brandingData?.backgroundColor || '#1e40af'}, #3b82f6)`,
     color: ticketData.brandingData?.primaryColor || 'white',
