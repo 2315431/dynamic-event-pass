@@ -46,7 +46,7 @@ export const handler = async (event) => {
     };
 
     const ticketJWT = jwt.sign(ticketPayload, process.env.PRIVATE_KEY.replace(/\\n/g, '\n'), {
-      algorithm: 'RS256',
+      algorithm: 'ES256',
       issuer: process.env.JWT_ISSUER,
       audience: process.env.JWT_AUDIENCE,
       expiresIn: '1y'
