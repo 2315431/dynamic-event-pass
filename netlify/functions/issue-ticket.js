@@ -11,23 +11,19 @@ const supabase = createClient(
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method Not Allowed' })
-    };
+    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
   try {
     const { 
-      eventId = 'DEFAULT_EVENT', 
-      eventName, 
-      buyerName, 
-      buyerEmail, 
-      seatInfo, 
-      category = 'General'
+        eventName, 
+        buyerName, 
+        buyerEmail, 
+        seatInfo, 
+        category = 'General', 
+        eventId = 'CONF2025' 
     } = JSON.parse(event.body);
 
-    // Validate required fields
     if (!eventName || !buyerName || !buyerEmail || !seatInfo) {
         return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
     }
@@ -38,31 +34,44 @@ export const handler = async (event) => {
     const backupPinHash = await bcrypt.hash(backupPin, 10);
     const validFrom = new Date();
     const validTo = new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)); // 1 year validity
+    const brandingData = { backgroundColor: '#1e40af', primaryColor: '#ffffff' }; // Example branding data
 
     const ticketPayload = {
-      ticketId, eventId, eventName, buyerName, buyerEmail, seatInfo, category, totpSecret, backupPinHash,
+      ticketId, eventName, buyerName, buyerEmail, seatInfo, category, totpSecret, backupPinHash,
       validFrom: validFrom.toISOString(),
       validTo: validTo.toISOString(),
     };
 
-    const ticketJWT = jwt.sign(ticketPayload, process.env.PRIVATE_KEY.replace(/\\n/g, '\n'), {
+    const privateKey = process.env.PRIVATE_KEY.replace(/\\n/g, '\n');
+
+    const ticketJWT = jwt.sign(ticketPayload, privateKey, {
       algorithm: 'ES256',
       issuer: process.env.JWT_ISSUER,
       audience: process.env.JWT_AUDIENCE,
       expiresIn: '1y'
     });
-
-    const { error: dbError } = await supabase.from('tickets').insert({
-      ticket_id: ticketId,
-      event_id: eventId,
-      buyer_name: buyerName,
-      buyer_email: buyerEmail,
-      is_redeemed: false,
-    });
+    
+    // THIS IS THE FINAL UPDATED PART
+    // It now sends all the required data to your new Supabase table.
+    const { error: dbError } = await supabase.from('tickets').insert([
+      {
+        ticket_id: ticketId,
+        event_id: eventId,
+        event_name: eventName,
+        buyer_name: buyerName,
+        buyer_email: buyerEmail,
+        seat_info: seatInfo,
+        category: category,
+        valid_from: validFrom.toISOString(),
+        valid_to: validTo.toISOString(),
+        backup_pin_hash: backupPinHash,
+        branding_data: brandingData
+      }
+    ]);
 
     if (dbError) {
       console.error('Supabase error:', dbError);
-      return { statusCode: 500, body: JSON.stringify({ error: 'Database operation failed.' }) };
+      return { statusCode: 500, body: JSON.stringify({ error: `Database error: ${dbError.message}` }) };
     }
 
     return {
