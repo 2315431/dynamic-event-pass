@@ -1,212 +1,123 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+
+// Styles for the modern validator UI
+const styles = {
+    container: { maxWidth: '500px', margin: '40px auto', fontFamily: 'system-ui, sans-serif', padding: '0 20px' },
+    card: { backgroundColor: '#1e293b', padding: '30px', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', color: 'white' },
+    title: { fontSize: '28px', fontWeight: 'bold', color: '#cbd5e1', textAlign: 'center', marginBottom: '20px' },
+    input: { width: '100%', boxSizing: 'border-box', backgroundColor: '#334155', border: '1px solid #475569', color: 'white', padding: '12px', borderRadius: '10px', marginBottom: '15px' },
+    button: { width: '100%', backgroundColor: '#16a34a', color: 'white', fontWeight: 'bold', padding: '15px', borderRadius: '10px', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s' },
+    scanButton: { width: '100%', backgroundColor: '#4f46e5', color: 'white', fontWeight: 'bold', padding: '15px', borderRadius: '10px', border: 'none', cursor: 'pointer', marginBottom: '20px', transition: 'background-color 0.2s' },
+    scanner: { border: '2px solid #4f46e5', borderRadius: '10px', overflow: 'hidden', marginBottom: '20px', padding: '10px' },
+    result: { marginTop: '20px', padding: '20px', borderRadius: '10px' },
+    success: { backgroundColor: '#14532d', color: '#a7f3d0' },
+    error: { backgroundColor: '#7f1d1d', color: '#fca5a5' },
+};
 
 function Validator() {
   const [ticketJWT, setTicketJWT] = useState('');
   const [code, setCode] = useState('');
-  const [codeType, setCodeType] = useState('totp');
-  const [isValidating, setIsValidating] = useState(false);
   const [result, setResult] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const scannerRef = useRef(null); // Ref to hold the scanner instance
 
-  const validateTicket = async () => {
-    if (!ticketJWT.trim() || !code.trim()) {
-      setResult({ success: false, error: 'Please enter both ticket and code' });
-      return;
+  // This effect handles the camera scanner
+  useEffect(() => {
+    if (isScanning) {
+      // If a scanner instance doesn't exist, create one
+      if (!scannerRef.current) {
+        const scanner = new Html5QrcodeScanner(
+          'qr-reader', 
+          { fps: 10, qrbox: { width: 250, height: 250 } }, 
+          false
+        );
+
+        const onScanSuccess = (decodedText) => {
+          setTicketJWT(decodedText);
+          setIsScanning(false);
+        };
+
+        const onScanError = (error) => {
+          // You can add error handling here if you wish
+          // console.warn(`QR scan error: ${error}`);
+        };
+        
+        scanner.render(onScanSuccess, onScanError);
+        scannerRef.current = scanner; // Store the instance
+      }
+    } else {
+      // If scanning is stopped, clear the scanner
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(error => {
+          console.error("Failed to clear scanner.", error);
+        });
+        scannerRef.current = null;
+      }
     }
 
-    setIsValidating(true);
-    
+    // Cleanup function to clear the scanner when the component unmounts
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear();
+      }
+    };
+  }, [isScanning]);
+
+  const handleValidate = async () => {
+    setResult(null);
     try {
       const response = await fetch('/.netlify/functions/validate-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticketJWT: ticketJWT.trim(),
-          code: code.trim(),
-          codeType,
-          validatorDevice: 'Web Validator Demo'
-        })
+        body: JSON.stringify({ ticketJWT, code }),
       });
-      
       const data = await response.json();
       setResult(data);
-      
-      if (data.success) {
-        // Clear form on success
-        setTicketJWT('');
-        setCode('');
-      }
-    } catch (error) {
-      console.error('Validation error:', error);
-      setResult({ success: false, error: 'Network error' });
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const styles = {
-    container: {
-      maxWidth: '600px',
-      margin: '20px auto',
-      padding: '20px',
-      fontFamily: 'system-ui, sans-serif'
-    },
-    header: {
-      textAlign: 'center',
-      color: '#1e40af',
-      marginBottom: '30px'
-    },
-    scanner: {
-      backgroundColor: '#f8fafc',
-      padding: '30px',
-      borderRadius: '12px',
-      marginBottom: '20px'
-    },
-    input: {
-      width: '100%',
-      padding: '12px',
-      marginBottom: '15px',
-      border: '1px solid #d1d5db',
-      borderRadius: '6px',
-      fontSize: '16px'
-    },
-    textarea: {
-      width: '100%',
-      padding: '12px',
-      marginBottom: '15px',
-      border: '1px solid #d1d5db',
-      borderRadius: '6px',
-      fontSize: '14px',
-      fontFamily: 'monospace',
-      minHeight: '100px',
-      resize: 'vertical'
-    },
-    radio: {
-      marginBottom: '20px'
-    },
-    radioOption: {
-      display: 'inline-block',
-      marginRight: '20px'
-    },
-    button: {
-      width: '100%',
-      padding: '15px',
-      backgroundColor: '#059669',
-      color: 'white',
-      border: 'none',
-      borderRadius: '8px',
-      fontSize: '18px',
-      cursor: 'pointer',
-      fontWeight: 'bold'
-    },
-    buttonDisabled: {
-      backgroundColor: '#9ca3af',
-      cursor: 'not-allowed'
-    },
-    result: {
-      padding: '20px',
-      borderRadius: '8px',
-      marginTop: '20px'
-    },
-    success: {
-      backgroundColor: '#ecfdf5',
-      border: '1px solid #10b981',
-      color: '#065f46'
-    },
-    error: {
-      backgroundColor: '#fef2f2',
-      border: '1px solid #ef4444',
-      color: '#991b1b'
-    },
-    ticketInfo: {
-      backgroundColor: '#f8fafc',
-      padding: '15px',
-      borderRadius: '8px',
-      marginTop: '15px'
+    } catch (err) {
+      setResult({ success: false, error: 'Network error.' });
     }
   };
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.header}>🔍 Ticket Validator</h1>
-      
-      <div style={styles.scanner}>
-        <h2>Scan or Enter Ticket</h2>
+      <div style={styles.card}>
+        <h1 style={styles.title}>Ticket Validator</h1>
         
+        {/* The "Scan" button that toggles the camera view */}
+        <button onClick={() => setIsScanning(!isScanning)} style={styles.scanButton}>
+          {isScanning ? '📷 Stop Scanning' : '📷 Scan QR Code'}
+        </button>
+        
+        {/* The div where the camera view will be rendered */}
+        {isScanning && <div id="qr-reader" style={styles.scanner}></div>}
+
         <textarea
-          style={styles.textarea}
-          placeholder="Paste ticket JWT here..."
+          style={{ ...styles.input, minHeight: '80px', fontFamily: 'monospace' }}
           value={ticketJWT}
           onChange={(e) => setTicketJWT(e.target.value)}
+          placeholder="Ticket JWT appears here after scan"
         />
-        
         <input
           style={styles.input}
           type="text"
-          placeholder="Enter 6-digit code or backup PIN"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          maxLength={6}
+          placeholder="Enter 6-digit rotating code"
+          maxLength="6"
         />
-        
-        <div style={styles.radio}>
-          <label style={styles.radioOption}>
-            <input
-              type="radio"
-              value="totp"
-              checked={codeType === 'totp'}
-              onChange={(e) => setCodeType(e.target.value)}
-            />
-            TOTP Code (6 digits)
-          </label>
-          <label style={styles.radioOption}>
-            <input
-              type="radio"
-              value="pin"
-              checked={codeType === 'pin'}
-              onChange={(e) => setCodeType(e.target.value)}
-            />
-            Backup PIN (4 digits)
-          </label>
-        </div>
-        
-        <button
-          style={{
-            ...styles.button,
-            ...(isValidating ? styles.buttonDisabled : {})
-          }}
-          onClick={validateTicket}
-          disabled={isValidating}
-        >
-          {isValidating ? 'Validating...' : '✓ Validate Ticket'}
+        <button onClick={handleValidate} style={styles.button}>
+          ✓ Validate Ticket
         </button>
-      </div>
 
-      {result && (
-        <div style={{
-          ...styles.result,
-          ...(result.success ? styles.success : styles.error)
-        }}>
-          {result.success ? (
-            <>
-              <h3>✅ Entry Approved</h3>
-              <div style={styles.ticketInfo}>
-                <p><strong>Ticket ID:</strong> {result.ticketData.ticketId}</p>
-                <p><strong>Event:</strong> {result.ticketData.eventName}</p>
-                <p><strong>Guest:</strong> {result.ticketData.buyerName}</p>
-                <p><strong>Category:</strong> {result.ticketData.category}</p>
-                <p><strong>Seat:</strong> {result.ticketData.seatInfo}</p>
-                <p><strong>Verified At:</strong> {new Date(result.redeemedAt).toLocaleString()}</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <h3>❌ Entry Denied</h3>
-              <p>{result.error}</p>
-              {result.details && <p><small>{result.details}</small></p>}
-            </>
-          )}
-        </div>
-      )}
+        {result && (
+          <div style={{ ...styles.result, ...(result.success ? styles.success : styles.error) }}>
+            <strong>{result.success ? '✅ Access Granted' : '❌ Entry Denied'}</strong>
+            <p>{result.message || result.error || result.details}</p>
+            {result.success && <p>Guest: {result.ticketDetails?.buyerName}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
