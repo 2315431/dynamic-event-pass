@@ -3,16 +3,20 @@ import { useNavigate } from 'react-router-dom';
 
 function Home() {
     const navigate = useNavigate();
-    const [formData, setFormData] = useState({ eventName: 'Future of Web Summit', buyerName: 'Jane Doe', buyerEmail: 'jane@example.com', seatInfo: 'General Admission' });
-    const [imageFile, setImageFile] = useState(null);
+    const [formData, setFormData] = useState({ 
+        eventName: 'Future of Web Summit', 
+        buyerName: 'Jane Doe', 
+        buyerEmail: 'jane@example.com', 
+        seatInfo: 'General Admission',
+        category: 'VIP',
+        eventId: 'FOWS2025'
+    });
     const [result, setResult] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleFileChange = (e) => {
-        if (e.target.files.length > 0) {
-            setImageFile(e.target.files[0]);
-        }
+    const handleInputChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleSubmit = async (e) => {
@@ -21,20 +25,12 @@ function Home() {
         setError('');
         setResult(null);
 
-        // This is a multipart form because it includes a file
-        const formPayload = new FormData();
-        formPayload.append('eventName', formData.eventName);
-        formPayload.append('buyerName', formData.buyerName);
-        formPayload.append('buyerEmail', formData.buyerEmail);
-        formPayload.append('seatInfo', formData.seatInfo);
-        if (imageFile) {
-            formPayload.append('image', imageFile);
-        }
-
         try {
+            // This is now a simple JSON request again.
             const response = await fetch('/.netlify/functions/issue-ticket', {
                 method: 'POST',
-                body: formPayload, // Send as FormData, not JSON
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
@@ -46,26 +42,42 @@ function Home() {
         }
     };
     
-    // (UI Code for the form, including a new file input)
     return (
-        <div className="bg-slate-800 p-6 rounded-2xl shadow-lg max-w-md mx-auto">
-             <h1 className="text-2xl font-bold text-center mb-6 text-lime-300">Issue New Ticket</h1>
-             <form onSubmit={handleSubmit}>
-                {/* ... other form inputs ... */}
-                 <div className="mb-4">
-                    <label htmlFor="image" className="block text-sm font-medium text-slate-300 mb-1">Event Image (Optional)</label>
-                    <input type="file" id="image" name="image" onChange={handleFileChange} accept="image/png, image/jpeg" className="w-full text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+        <div className="bg-slate-800 p-8 rounded-2xl shadow-lg max-w-lg mx-auto">
+             <h1 className="text-3xl font-bold text-center mb-6 text-lime-300">Issue New Ticket</h1>
+             <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="eventName" className="block text-sm font-medium text-slate-300">Event Name</label>
+                    <input type="text" id="eventName" name="eventName" value={formData.eventName} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
+                </div>
+                 <div>
+                    <label htmlFor="buyerName" className="block text-sm font-medium text-slate-300">Guest Name</label>
+                    <input type="text" id="buyerName" name="buyerName" value={formData.buyerName} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
+                </div>
+                 <div>
+                    <label htmlFor="buyerEmail" className="block text-sm font-medium text-slate-300">Guest Email</label>
+                    <input type="email" id="buyerEmail" name="buyerEmail" value={formData.buyerEmail} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
+                </div>
+                <div>
+                    <label htmlFor="seatInfo" className="block text-sm font-medium text-slate-300">Seat Info</label>
+                    <input type="text" id="seatInfo" name="seatInfo" value={formData.seatInfo} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
+                </div>
+                 <div>
+                    <label htmlFor="category" className="block text-sm font-medium text-slate-300">Category</label>
+                    <input type="text" id="category" name="category" value={formData.category} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
                 </div>
 
-                <button type="submit" disabled={isLoading} className="w-full bg-lime-500 ...">
+                <button type="submit" disabled={isLoading} className="w-full bg-lime-500 hover:bg-lime-600 text-slate-900 font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-600">
                     {isLoading ? 'Issuing...' : 'Issue Ticket'}
                 </button>
              </form>
-             {error && <div className="mt-4 bg-red-900 ...">{error}</div>}
+             {error && <div className="mt-4 bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">{error}</div>}
              {result && (
-                <div className="mt-4 bg-green-900 ...">
-                    <p>Ticket Issued!</p>
-                    <a href={`/ticket?tk=${result.ticketJWT}`} target="_blank">View Guest Pass</a>
+                <div className="mt-4 bg-green-900 border border-green-700 p-4 rounded-lg">
+                    <p className="text-green-300 font-semibold mb-2">Ticket Issued!</p>
+                    <a href={`/ticket?tk=${result.ticketJWT}`} target="_blank" rel="noopener noreferrer" className="text-lime-400 hover:underline break-words">
+                        View Guest Pass
+                    </a>
                 </div>
              )}
         </div>
