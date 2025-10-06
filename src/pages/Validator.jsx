@@ -9,7 +9,7 @@ const styles = {
     input: { width: '100%', boxSizing: 'border-box', backgroundColor: '#334155', border: '1px solid #475569', color: 'white', padding: '12px', borderRadius: '10px', marginBottom: '15px' },
     button: { width: '100%', backgroundColor: '#16a34a', color: 'white', fontWeight: 'bold', padding: '15px', borderRadius: '10px', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s' },
     scanButton: { width: '100%', backgroundColor: '#4f46e5', color: 'white', fontWeight: 'bold', padding: '15px', borderRadius: '10px', border: 'none', cursor: 'pointer', marginBottom: '20px', transition: 'background-color 0.2s' },
-    scanner: { border: '2px solid #4f46e5', borderRadius: '10px', overflow: 'hidden', marginBottom: '20px', padding: '10px' },
+    scannerContainer: { border: '2px solid #4f46e5', borderRadius: '10px', overflow: 'hidden', marginBottom: '20px', padding: '10px', background: '#334155' },
     result: { marginTop: '20px', padding: '20px', borderRadius: '10px' },
     success: { backgroundColor: '#14532d', color: '#a7f3d0' },
     error: { backgroundColor: '#7f1d1d', color: '#fca5a5' },
@@ -20,34 +20,31 @@ function Validator() {
   const [code, setCode] = useState('');
   const [result, setResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
-  const scannerRef = useRef(null); // Ref to hold the scanner instance
+  const scannerRef = useRef(null); // This holds the scanner instance
 
-  // This effect handles the camera scanner
   useEffect(() => {
     if (isScanning) {
-      // If a scanner instance doesn't exist, create one
-      if (!scannerRef.current) {
-        const scanner = new Html5QrcodeScanner(
-          'qr-reader', 
-          { fps: 10, qrbox: { width: 250, height: 250 } }, 
-          false
-        );
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      
+      const onScanSuccess = (decodedText) => {
+        setTicketJWT(decodedText);
+        setIsScanning(false); // Stop scanning on success
+      };
 
-        const onScanSuccess = (decodedText) => {
-          setTicketJWT(decodedText);
-          setIsScanning(false);
-        };
+      const onScanError = (error) => {
+        // This is called continuously, so we don't log it to avoid spam.
+      };
 
-        const onScanError = (error) => {
-          // You can add error handling here if you wish
-          // console.warn(`QR scan error: ${error}`);
-        };
-        
-        scanner.render(onScanSuccess, onScanError);
-        scannerRef.current = scanner; // Store the instance
+      // Ensure the element exists before trying to render the scanner
+      const scannerElement = document.getElementById('qr-reader');
+      if (scannerElement) {
+        if (!scannerRef.current) {
+            const scanner = new Html5QrcodeScanner('qr-reader', config, false);
+            scanner.render(onScanSuccess, onScanError);
+            scannerRef.current = scanner;
+        }
       }
     } else {
-      // If scanning is stopped, clear the scanner
       if (scannerRef.current) {
         scannerRef.current.clear().catch(error => {
           console.error("Failed to clear scanner.", error);
@@ -55,13 +52,6 @@ function Validator() {
         scannerRef.current = null;
       }
     }
-
-    // Cleanup function to clear the scanner when the component unmounts
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear();
-      }
-    };
   }, [isScanning]);
 
   const handleValidate = async () => {
@@ -84,13 +74,11 @@ function Validator() {
       <div style={styles.card}>
         <h1 style={styles.title}>Ticket Validator</h1>
         
-        {/* The "Scan" button that toggles the camera view */}
         <button onClick={() => setIsScanning(!isScanning)} style={styles.scanButton}>
           {isScanning ? '📷 Stop Scanning' : '📷 Scan QR Code'}
         </button>
         
-        {/* The div where the camera view will be rendered */}
-        {isScanning && <div id="qr-reader" style={styles.scanner}></div>}
+        {isScanning && <div id="qr-reader" style={styles.scannerContainer}></div>}
 
         <textarea
           style={{ ...styles.input, minHeight: '80px', fontFamily: 'monospace' }}
