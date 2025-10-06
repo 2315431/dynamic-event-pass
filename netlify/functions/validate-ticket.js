@@ -1,47 +1,54 @@
+import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
-import { authenticator } from 'otplib';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
+
   try {
-    const { ticketJWT, code } = JSON.parse(event.body);
-    if (!ticketJWT || !code) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing ticket or code.' }) };
+    const { ticketId } = JSON.parse(event.body);
+
+    if (!ticketId) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing ticketId.' }) };
     }
 
-    // THIS IS THE FIX: Re-fold the public key so the JWT library can read it.
-    const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
+    // 1. Check if the ticket exists and is already redeemed
+    const { data: ticket, error: fetchError } = await supabase
+      .from('tickets')
+      .select('is_redeemed, buyer_name')
+      .eq('ticket_id', ticketId)
+      .single();
 
-    const decoded = jwt.verify(ticketJWT, publicKey, {
-      algorithms: ['ES256'],
-      issuer: process.env.JWT_ISSUER,
-      audience: process.env.JWT_AUDIENCE,
-    });
-
-    const isTotpValid = authenticator.verify({ token: code, secret: decoded.totpSecret });
-    if (!isTotpValid) {
-      return { statusCode: 401, body: JSON.stringify({ success: false, error: 'Invalid code.' }) };
+    if (fetchError || !ticket) {
+      return { statusCode: 404, body: JSON.stringify({ success: false, error: 'Ticket not found.' }) };
     }
 
-    // In a real app, you would now update your database to mark this ticket as redeemed.
+    if (ticket.is_redeemed) {
+      return { statusCode: 409, body: JSON.stringify({ success: false, error: 'This ticket has already been redeemed.' }) };
+    }
+
+    // 2. If not redeemed, mark it as redeemed
+    const { error: updateError } = await supabase
+      .from('tickets')
+      .update({ is_redeemed: true, redeemed_at: new Date().toISOString() })
+      .eq('ticket_id', ticketId);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+    
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        message: 'Ticket is valid and has been redeemed.',
-        ticketDetails: decoded,
-      }),
+      body: JSON.stringify({ success: true, message: 'Ticket successfully redeemed in database.', guestName: ticket.buyer_name }),
     };
+
   } catch (error) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({
-        success: false,
-        error: 'Invalid ticket signature',
-        details: error.message,
-      }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ success: false, error: error.message }) };
   }
 };

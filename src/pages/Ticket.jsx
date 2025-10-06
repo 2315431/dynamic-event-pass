@@ -3,12 +3,12 @@ import { authenticator } from 'otplib';
 import { jwtDecode } from 'jwt-decode';
 import QRCode from 'qrcode.react';
 
+// (Static styles remain the same)
 const staticStyles = {
   container: { maxWidth: '400px', margin: '40px auto', fontFamily: 'system-ui, sans-serif', padding: '0 20px' },
   qrContainer: { backgroundColor: 'white', padding: '20px', borderRadius: '15px', marginBottom: '25px' },
   header: { fontSize: '24px', fontWeight: 'bold', marginBottom: '5px' },
   subheader: { fontSize: '16px', opacity: 0.9, marginBottom: '30px' },
-  codeDisplay: { fontSize: '24px', fontFamily: 'monospace', letterSpacing: '4px', backgroundColor: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', marginBottom: '10px' },
   timer: { fontSize: '14px', opacity: 0.8 },
   message: { textAlign: 'center', padding: '40px', backgroundColor: '#334155', color: 'white', borderRadius: '20px' }
 };
@@ -33,7 +33,6 @@ function Ticket() {
       const updateCode = () => {
         const code = authenticator.generate(payload.totpSecret);
         const remaining = authenticator.timeRemaining();
-        // The new dynamic QR code value combines the JWT and the current code.
         setDynamicQrValue(`${jwtFromUrl}|${code}`);
         setTimeRemaining(remaining);
       };
@@ -62,7 +61,8 @@ function Ticket() {
         <div style={staticStyles.subheader}>{ticketData.buyerName}</div>
         
         <div style={staticStyles.qrContainer}>
-            <QRCode value={dynamicQrValue} size={256} style={{ margin: '0 auto' }} />
+            {/* THIS IS THE FIX: 'L' level has less error correction, making the blocks bigger and easier to scan. */}
+            <QRCode value={dynamicQrValue} size={256} level="L" style={{ margin: '0 auto' }} />
         </div>
         
         <p style={{opacity: 0.8}}>This QR code updates automatically.</p>
