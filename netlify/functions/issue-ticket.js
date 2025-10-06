@@ -1,56 +1,66 @@
+// This function now requires 'busboy' to handle file uploads.
+// Add it to your package.json: "busboy": "^1.6.0"
+import busboy from 'busboy';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+// Helper to parse multipart form data
+const parseMultipartForm = (event) => {
+    return new Promise((resolve) => {
+        const bb = busboy({ headers: event.headers });
+        const fields = {};
+        let uploadedFile = null;
+
+        bb.on('file', (fieldname, file, { filename, mimeType }) => {
+            const chunks = [];
+            file.on('data', (chunk) => chunks.push(chunk));
+            file.on('end', () => {
+                uploadedFile = {
+                    content: Buffer.concat(chunks),
+                    filename,
+                    mimeType
+                };
+            });
+        });
+
+        bb.on('field', (fieldname, val) => { fields[fieldname] = val; });
+        bb.on('close', () => resolve({ fields, file: uploadedFile }));
+        bb.write(event.body, event.isBase64Encoded ? 'base64' : 'binary');
+        bb.end();
+    });
+};
+
 
 export const handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-  }
   try {
-    const { eventName, buyerName, buyerEmail, seatInfo, category = 'General', eventId = 'CONF2025' } = JSON.parse(event.body);
-    if (!eventName || !buyerName || !buyerEmail || !seatInfo) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields.' }) };
+    const { fields, file } = await parseMultipartForm(event);
+    const { eventName, buyerName, buyerEmail, seatInfo } = fields;
+    
+    let imageUrl = null;
+    if (file) {
+        const filePath = `event-images/${Date.now()}-${file.filename}`;
+        const { error: uploadError } = await supabase.storage.from('ticket-assets').upload(filePath, file.content, { contentType: file.mimeType });
+        if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
+        const { data: { publicUrl } } = supabase.storage.from('ticket-assets').getPublicUrl(filePath);
+        imageUrl = publicUrl;
     }
+
     const ticketId = `TKT-${Date.now()}`;
     const totpSecret = authenticator.generateSecret();
-    const backupPin = Math.floor(1000 + Math.random() * 9000).toString();
-    const backupPinHash = await bcrypt.hash(backupPin, 10);
-    const validFrom = new Date();
-    const validTo = new Date(Date.now() + 31536000000); // 1 year
-    const brandingData = { backgroundColor: '#1e40af', primaryColor: '#ffffff' };
+    const backupPinHash = await bcrypt.hash(Math.floor(1000 + Math.random() * 9000).toString(), 10);
 
-    const ticketPayload = {
-      ticketId, eventName, buyerName, buyerEmail, seatInfo, category, totpSecret, backupPinHash, brandingData,
-      validFrom: validFrom.toISOString(),
-      validTo: validTo.toISOString(),
-    };
+    const ticketPayload = { ticketId, eventName, buyerName, buyerEmail, seatInfo, totpSecret, backupPinHash, imageUrl };
     const privateKey = process.env.PRIVATE_KEY.replace(/\\n/g, '\n');
-    const ticketJWT = jwt.sign(ticketPayload, privateKey, {
-      algorithm: 'ES256',
-      issuer: process.env.JWT_ISSUER,
-      audience: process.env.JWT_AUDIENCE,
-      expiresIn: '1y'
-    });
-    const { error: dbError } = await supabase.from('tickets').insert([{
-      ticket_id: ticketId, event_id: eventId, event_name: eventName, buyer_name: buyerName,
-      buyer_email: buyerEmail, seat_info: seatInfo, category: category,
-      valid_from: validFrom.toISOString(), valid_to: validTo.toISOString(),
-      backup_pin_hash: backupPinHash, branding_data: brandingData
-    }]);
-    if (dbError) {
-      throw new Error(dbError.message);
-    }
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, ticketJWT, backupPin, ticketUrl: `/ticket?tk=${ticketJWT}` })
-    };
+    const ticketJWT = jwt.sign(ticketPayload, privateKey, { algorithm: 'ES256', expiresIn: '1y' });
+
+    await supabase.from('tickets').insert([{ ticket_id: ticketId, event_name: eventName, buyer_name: buyerName, buyer_email: buyerEmail, image_url: imageUrl }]);
+
+    return { statusCode: 200, body: JSON.stringify({ success: true, ticketJWT }) };
   } catch (error) {
-    return { statusCode: 500, body: JSON.stringify({ error: `Server error: ${error.message}` }) };
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
 };
