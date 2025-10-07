@@ -1,19 +1,27 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, Search, User, Calendar, QrCode } from 'lucide-react'
+import { Menu, X, Search, User, Calendar, QrCode, LogOut, Settings } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import NotificationCenter from './NotificationCenter'
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const location = useLocation()
+  const { user, logout } = useAuth()
 
   const navigation = [
     { name: 'Home', href: '/' },
     { name: 'Events', href: '/events' },
-    { name: 'My Tickets', href: '/tickets' },
     { name: 'Validator', href: '/validator' },
   ]
 
   const isActive = (path) => location.pathname === path
+
+  const handleLogout = () => {
+    logout()
+    setIsUserMenuOpen(false)
+  }
 
   return (
     <header className="bg-white shadow-sm border-b">
@@ -49,6 +57,7 @@ const Header = () => {
             <button className="p-2 text-gray-400 hover:text-gray-600">
               <Search className="w-5 h-5" />
             </button>
+            <NotificationCenter />
             <Link
               to="/validator"
               className="btn btn-outline btn-sm"
@@ -56,10 +65,51 @@ const Header = () => {
               <QrCode className="w-4 h-4 mr-2" />
               Validate
             </Link>
-            <button className="btn btn-primary btn-sm">
-              <User className="w-4 h-4 mr-2" />
-              Sign In
-            </button>
+            
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-2 text-gray-700 hover:text-gray-900"
+                >
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-8 h-8 rounded-full"
+                  />
+                  <span className="text-sm font-medium">{user.name}</span>
+                </button>
+                
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                    <Link
+                      to="/admin"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Link to="/login" className="btn btn-outline btn-sm">
+                  Sign In
+                </Link>
+                <Link to="/register" className="btn btn-primary btn-sm">
+                  Sign Up
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Mobile menu button */}

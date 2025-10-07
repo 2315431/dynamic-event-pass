@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Calendar, MapPin, Users, CreditCard, CheckCircle, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PaymentForm from '../components/PaymentForm'
 
 const Booking = () => {
   const { id } = useParams()
@@ -14,6 +15,7 @@ const Booking = () => {
     quantity: 1,
     paymentMethod: 'card'
   })
+  const [paymentData, setPaymentData] = useState(null)
 
   // Mock event data
   const event = {
@@ -47,6 +49,16 @@ const Booking = () => {
 
   const handleBack = () => {
     setStep(step - 1)
+  }
+
+  const handlePaymentSuccess = (payment) => {
+    setPaymentData(payment)
+    setStep(3)
+    toast.success('Payment successful!')
+  }
+
+  const handlePaymentError = (error) => {
+    toast.error(`Payment failed: ${error}`)
   }
 
   const handleSubmit = () => {
@@ -169,77 +181,17 @@ const Booking = () => {
             )}
 
             {step === 2 && (
-              <div className="card p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment Information</h2>
+              <div>
+                <PaymentForm
+                  amount={finalTotal}
+                  currency="USD"
+                  onPaymentSuccess={handlePaymentSuccess}
+                  onPaymentError={handlePaymentError}
+                />
                 
-                <div className="space-y-4">
-                  <div>
-                    <label className="label">Payment Method</label>
-                    <div className="space-y-2">
-                      <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="card"
-                          checked={formData.paymentMethod === 'card'}
-                          onChange={handleInputChange}
-                          className="mr-3"
-                        />
-                        <CreditCard className="w-5 h-5 mr-2" />
-                        <span>Credit/Debit Card</span>
-                      </label>
-                      <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value="paypal"
-                          checked={formData.paymentMethod === 'paypal'}
-                          onChange={handleInputChange}
-                          className="mr-3"
-                        />
-                        <span>PayPal</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {formData.paymentMethod === 'card' && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="label">Card Number</label>
-                        <input
-                          type="text"
-                          placeholder="1234 5678 9012 3456"
-                          className="input"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="label">Expiry Date</label>
-                          <input
-                            type="text"
-                            placeholder="MM/YY"
-                            className="input"
-                          />
-                        </div>
-                        <div>
-                          <label className="label">CVV</label>
-                          <input
-                            type="text"
-                            placeholder="123"
-                            className="input"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 <div className="flex justify-between mt-6">
                   <button onClick={handleBack} className="btn btn-outline btn-md">
                     Back
-                  </button>
-                  <button onClick={handleNext} className="btn btn-primary btn-md">
-                    Review & Pay
                   </button>
                 </div>
               </div>
@@ -266,6 +218,17 @@ const Booking = () => {
                       <li>• Show your QR code at the event entrance</li>
                     </ul>
                   </div>
+                  
+                  {paymentData && (
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <h3 className="font-semibold text-green-800 mb-2">Payment Confirmation</h3>
+                      <div className="text-sm text-green-600 space-y-1">
+                        <p>Transaction ID: {paymentData.transactionId}</p>
+                        <p>Amount: ${paymentData.amount.toFixed(2)} {paymentData.currency}</p>
+                        <p>Payment Method: {paymentData.paymentMethod}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between">
