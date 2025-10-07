@@ -19,7 +19,7 @@ function Validator() {
             try {
                 const response = await fetch('/.netlify/functions/get-public-key');
                 const { publicKey: rawKey } = await response.json();
-                cryptoPublicKey = await jose.importSPKI(rawKey, 'RS256');
+                cryptoPublicKey = await jose.importSPKI(rawKey, 'RS256', { extractable: true });
                 setIsReady(true);
                 
                 // Load pending sync items

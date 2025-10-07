@@ -5,7 +5,7 @@ export const handler = async (event) => {
     try {
         const { tk } = event.queryStringParameters;
         const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
-        const decoded = jwt.verify(tk, publicKey, { algorithms: ['ES256'] });
+        const decoded = jwt.verify(tk, publicKey, { algorithms: ['RS256'] });
 
         const pdfDoc = await PDFDocument.create();
         const page = pdfDoc.addPage();
