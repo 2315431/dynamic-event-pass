@@ -1,97 +1,220 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react'
+import { Link } from 'react-router-dom'
+import { Calendar, MapPin, Users, Star, ArrowRight, Search, Filter } from 'lucide-react'
 
-function Home() {
-    const navigate = useNavigate();
-    const [formData, setFormData] = useState({ 
-        eventName: 'Future of Web Summit', 
-        buyerName: 'Jane Doe', 
-        buyerEmail: 'jane@example.com', 
-        seatInfo: 'General Admission',
-        category: 'VIP',
-        eventId: 'FOWS2025'
-    });
-    const [result, setResult] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
+const Home = () => {
+  const featuredEvents = [
+    {
+      id: 1,
+      title: "Tech Conference 2024",
+      date: "2024-03-15",
+      time: "09:00 AM",
+      venue: "Convention Center",
+      city: "San Francisco",
+      price: "$99",
+      image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop",
+      category: "Technology",
+      rating: 4.8,
+      attendees: 1200
+    },
+    {
+      id: 2,
+      title: "Music Festival",
+      date: "2024-04-20",
+      time: "06:00 PM",
+      venue: "Central Park",
+      city: "New York",
+      price: "$149",
+      image: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=500&h=300&fit=crop",
+      category: "Music",
+      rating: 4.9,
+      attendees: 5000
+    },
+    {
+      id: 3,
+      title: "Startup Pitch Night",
+      date: "2024-05-10",
+      time: "07:00 PM",
+      venue: "Innovation Hub",
+      city: "Austin",
+      price: "$49",
+      image: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=500&h=300&fit=crop",
+      category: "Business",
+      rating: 4.7,
+      attendees: 300
+    }
+  ]
 
-    const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+  const categories = [
+    { name: "Technology", icon: "💻", count: 45 },
+    { name: "Music", icon: "🎵", count: 32 },
+    { name: "Sports", icon: "⚽", count: 28 },
+    { name: "Business", icon: "💼", count: 19 },
+    { name: "Arts", icon: "🎨", count: 15 },
+    { name: "Food", icon: "🍕", count: 12 }
+  ]
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError('');
-        setResult(null);
-
-        try {
-            // This is now a simple JSON request again.
-            const response = await fetch('/.netlify/functions/issue-ticket', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
-            setResult(data);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    return (
-        <div className="bg-slate-800 p-8 rounded-2xl shadow-lg max-w-lg mx-auto">
-             <h1 className="text-3xl font-bold text-center mb-6 text-lime-300">Issue New Ticket</h1>
-             <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="eventName" className="block text-sm font-medium text-slate-300">Event Name</label>
-                    <input type="text" id="eventName" name="eventName" value={formData.eventName} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
+  return (
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-r from-primary-600 to-primary-800 text-white">
+        <div className="absolute inset-0 bg-black opacity-20"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="text-center">
+            <h1 className="text-4xl md:text-6xl font-bold mb-6">
+              Discover Amazing Events
+            </h1>
+            <p className="text-xl md:text-2xl mb-8 text-primary-100">
+              Book tickets for the best events in your city
+            </p>
+            
+            {/* Search Bar */}
+            <div className="max-w-2xl mx-auto">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Search events, venues, artists..."
+                    className="w-full pl-10 pr-4 py-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-white"
+                  />
                 </div>
-                 <div>
-                    <label htmlFor="buyerName" className="block text-sm font-medium text-slate-300">Guest Name</label>
-                    <input type="text" id="buyerName" name="buyerName" value={formData.buyerName} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <select className="pl-10 pr-8 py-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-white min-w-[200px]">
+                    <option>All Cities</option>
+                    <option>San Francisco</option>
+                    <option>New York</option>
+                    <option>Austin</option>
+                    <option>Los Angeles</option>
+                  </select>
                 </div>
-                 <div>
-                    <label htmlFor="buyerEmail" className="block text-sm font-medium text-slate-300">Guest Email</label>
-                    <input type="email" id="buyerEmail" name="buyerEmail" value={formData.buyerEmail} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
-                </div>
-                <div>
-                    <label htmlFor="seatInfo" className="block text-sm font-medium text-slate-300">Seat Info</label>
-                    <input type="text" id="seatInfo" name="seatInfo" value={formData.seatInfo} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
-                </div>
-                 <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-slate-300">Category</label>
-                    <input type="text" id="category" name="category" value={formData.category} onChange={handleInputChange} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 mt-1" />
-                </div>
-
-                <button type="submit" disabled={isLoading} className="w-full bg-lime-500 hover:bg-lime-600 text-slate-900 font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-slate-600">
-                    {isLoading ? 'Issuing...' : 'Issue Ticket'}
+                <button className="btn btn-primary btn-lg px-8">
+                  Search Events
                 </button>
-             </form>
-             {error && <div className="mt-4 bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">{error}</div>}
-             {result && (
-                <div className="mt-4 bg-green-900 border border-green-700 p-4 rounded-lg">
-                    <p className="text-green-300 font-semibold mb-2">✅ Ticket Issued Successfully!</p>
-                    <div className="space-y-2 text-sm">
-                        <p className="text-green-200">Ticket ID: <span className="font-mono">{result.ticketId}</span></p>
-                        <p className="text-green-200">Backup PIN: <span className="font-mono font-bold">{result.backupPin}</span></p>
-                        <p className="text-yellow-300 text-xs">⚠️ Save this PIN - you'll need it if the rotating code fails</p>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                        <a href={`/ticket?tk=${result.ticketJWT}`} target="_blank" rel="noopener noreferrer" className="block w-full bg-lime-500 hover:bg-lime-600 text-slate-900 font-bold py-2 px-4 rounded-lg transition-colors text-center">
-                            📱 View Guest Pass
-                        </a>
-                        <a href="/validator" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-center">
-                            🔍 Open Validator
-                        </a>
-                    </div>
-                </div>
-             )}
+              </div>
+            </div>
+          </div>
         </div>
-    );
+      </section>
+
+      {/* Categories Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Browse by Category</h2>
+            <p className="text-lg text-gray-600">Find events that match your interests</p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            {categories.map((category) => (
+              <Link
+                key={category.name}
+                to="/events"
+                className="group p-6 rounded-lg border-2 border-gray-200 hover:border-primary-500 hover:shadow-lg transition-all duration-200 text-center"
+              >
+                <div className="text-4xl mb-3">{category.icon}</div>
+                <h3 className="font-semibold text-gray-900 group-hover:text-primary-600">
+                  {category.name}
+                </h3>
+                <p className="text-sm text-gray-500">{category.count} events</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Events */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center mb-12">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Featured Events</h2>
+              <p className="text-lg text-gray-600">Don't miss these popular events</p>
+            </div>
+            <Link to="/events" className="btn btn-outline btn-md">
+              View All Events
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {featuredEvents.map((event) => (
+              <div key={event.id} className="card overflow-hidden group hover:shadow-xl transition-shadow duration-300">
+                <div className="relative">
+                  <img
+                    src={event.image}
+                    alt={event.title}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-primary-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      {event.category}
+                    </span>
+                  </div>
+                  <div className="absolute top-4 right-4">
+                    <div className="bg-white bg-opacity-90 rounded-full px-2 py-1 flex items-center">
+                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                      <span className="ml-1 text-sm font-medium">{event.rating}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary-600">
+                    {event.title}
+                  </h3>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center text-gray-600">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      <span>{new Date(event.date).toLocaleDateString()} at {event.time}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      <span>{event.venue}, {event.city}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <Users className="w-4 h-4 mr-2" />
+                      <span>{event.attendees.toLocaleString()} attendees</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <div className="text-2xl font-bold text-primary-600">{event.price}</div>
+                    <Link
+                      to={`/booking/${event.id}`}
+                      className="btn btn-primary btn-md"
+                    >
+                      Book Now
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 bg-primary-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold mb-4">Ready to Create Your Event?</h2>
+          <p className="text-xl text-primary-100 mb-8">
+            Join thousands of event organizers who trust us with their ticketing
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button className="btn bg-white text-primary-600 hover:bg-gray-100 btn-lg">
+              Create Event
+            </button>
+            <Link to="/validator" className="btn btn-outline border-white text-white hover:bg-white hover:text-primary-600 btn-lg">
+              Validate Tickets
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
 }
 
-export default Home;
+export default Home
