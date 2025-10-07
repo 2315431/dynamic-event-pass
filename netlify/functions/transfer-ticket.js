@@ -1,14 +1,14 @@
-const jwt = require('jsonwebtoken');
-const { authenticator } = require('otplib');
-const bcrypt = require('bcryptjs');
-const { createClient } = require('@supabase/supabase-js');
+import jwt from 'jsonwebtoken';
+import { authenticator } from 'otplib';
+import bcrypt from 'bcryptjs';
+import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-exports.handler = async (event, context) => {
+export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -19,31 +19,53 @@ exports.handler = async (event, context) => {
   try {
     const { ticketJWT, newBuyerName, newBuyerEmail } = JSON.parse(event.body);
 
+    if (!ticketJWT || !newBuyerName || !newBuyerEmail) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ success: false, error: 'Missing required fields' })
+      };
+    }
+
     // Verify current ticket
-    const ticketData = jwt.verify(ticketJWT, process.env.PUBLIC_KEY, {
+    const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
+    const ticketData = jwt.verify(ticketJWT, publicKey, {
       algorithms: ['RS256'],
-      issuer: process.env.JWT_ISSUER,
-      audience: process.env.JWT_AUDIENCE
+      issuer: process.env.JWT_ISSUER || 'dep-platform',
+      audience: process.env.JWT_AUDIENCE || 'dep-validator'
     });
 
     if (!ticketData.transferAllowed) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ success: false, error: 'Transfer not allowed' })
+        body: JSON.stringify({ success: false, error: 'Transfer not allowed for this ticket' })
       };
     }
 
-    // Check ticket status
-    const { data: ticket } = await supabase
+    // Check ticket status in database
+    const { data: ticket, error: fetchError } = await supabase
       .from('tickets')
       .select('is_redeemed, is_revoked')
       .eq('ticket_id', ticketData.ticketId)
       .single();
 
-    if (ticket.is_redeemed || ticket.is_revoked) {
+    if (fetchError) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ success: false, error: 'Ticket not found in database' })
+      };
+    }
+
+    if (ticket.is_redeemed) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ success: false, error: 'Cannot transfer used/revoked ticket' })
+        body: JSON.stringify({ success: false, error: 'Cannot transfer already redeemed ticket' })
+      };
+    }
+
+    if (ticket.is_revoked) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ success: false, error: 'Cannot transfer revoked ticket' })
       };
     }
 
@@ -59,18 +81,20 @@ exports.handler = async (event, context) => {
       buyerEmail: newBuyerEmail,
       totpSecret: newTotpSecret,
       backupPinHash: newBackupPinHash,
-      iat: Math.floor(Date.now() / 1000) // New issued at time
+      issuedAt: new Date().toISOString()
     };
 
-    const newTicketJWT = jwt.sign(newTicketPayload, process.env.PRIVATE_KEY, {
+    // Sign new ticket
+    const privateKey = process.env.PRIVATE_KEY.replace(/\\n/g, '\n');
+    const newTicketJWT = jwt.sign(newTicketPayload, privateKey, {
       algorithm: 'RS256',
-      issuer: process.env.JWT_ISSUER,
-      audience: process.env.JWT_AUDIENCE,
-      expiresIn: ticketData.validTo
+      issuer: process.env.JWT_ISSUER || 'dep-platform',
+      audience: process.env.JWT_AUDIENCE || 'dep-validator',
+      expiresIn: '1y'
     });
 
-    // Update database
-    await supabase
+    // Update database with new owner and credentials
+    const { error: updateError } = await supabase
       .from('tickets')
       .update({
         buyer_name: newBuyerName,
@@ -80,24 +104,37 @@ exports.handler = async (event, context) => {
       })
       .eq('ticket_id', ticketData.ticketId);
 
+    if (updateError) {
+      throw new Error('Failed to update ticket in database: ' + updateError.message);
+    }
+
+    // Log the transfer
+    await supabase.from('transfers').insert([{
+      ticket_id: ticketData.ticketId,
+      from_email: ticketData.buyerEmail,
+      to_email: newBuyerEmail,
+      transferred_at: new Date().toISOString()
+    }]);
+
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
       body: JSON.stringify({
         success: true,
         newTicketJWT,
         newBackupPin,
-        ticketUrl: `${process.env.URL || 'http://localhost:3000'}/ticket?tk=${newTicketJWT}`
+        ticketId: ticketData.ticketId,
+        guestUrl: `${process.env.URL || 'http://localhost:8888'}/ticket?tk=${encodeURIComponent(newTicketJWT)}`,
+        message: 'Ticket successfully transferred'
       })
     };
   } catch (error) {
     console.error('Transfer error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Transfer failed' })
+      body: JSON.stringify({ 
+        success: false, 
+        error: 'Transfer failed: ' + error.message 
+      })
     };
   }
 };

@@ -74,10 +74,20 @@ function Home() {
              {error && <div className="mt-4 bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">{error}</div>}
              {result && (
                 <div className="mt-4 bg-green-900 border border-green-700 p-4 rounded-lg">
-                    <p className="text-green-300 font-semibold mb-2">Ticket Issued!</p>
-                    <a href={`/ticket?tk=${result.ticketJWT}`} target="_blank" rel="noopener noreferrer" className="text-lime-400 hover:underline break-words">
-                        View Guest Pass
-                    </a>
+                    <p className="text-green-300 font-semibold mb-2">✅ Ticket Issued Successfully!</p>
+                    <div className="space-y-2 text-sm">
+                        <p className="text-green-200">Ticket ID: <span className="font-mono">{result.ticketId}</span></p>
+                        <p className="text-green-200">Backup PIN: <span className="font-mono font-bold">{result.backupPin}</span></p>
+                        <p className="text-yellow-300 text-xs">⚠️ Save this PIN - you'll need it if the rotating code fails</p>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                        <a href={`/ticket?tk=${result.ticketJWT}`} target="_blank" rel="noopener noreferrer" className="block w-full bg-lime-500 hover:bg-lime-600 text-slate-900 font-bold py-2 px-4 rounded-lg transition-colors text-center">
+                            📱 View Guest Pass
+                        </a>
+                        <a href="/validator" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-center">
+                            🔍 Open Validator
+                        </a>
+                    </div>
                 </div>
              )}
         </div>
