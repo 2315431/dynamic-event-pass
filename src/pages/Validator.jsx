@@ -367,7 +367,7 @@ function Validator() {
                                             <span className="text-sm">TOTP code valid</span>
                                         </div>
                                         <div className="flex items-center">
-                                            <span className={result.validation.onlineSync ? "text-green-600" : "text-yellow-600"} mr-2">
+                                            <span className={`${result.validation.onlineSync ? "text-green-600" : "text-yellow-600"} mr-2`}>
                                                 {result.validation.onlineSync ? "✓" : "⚠"}
                                             </span>
                                             <span className="text-sm">
